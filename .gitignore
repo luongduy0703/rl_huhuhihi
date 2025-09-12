@@ -21,6 +21,7 @@ wheels/
 *.egg
 
 # Virtual environments
+.venv/
 venv/
 env/
 ENV/
@@ -38,15 +39,34 @@ Thumbs.db
 # Project specific
 *.log
 
-# Allow sharing important project files
-# models/ - commented out to share trained models
-# plots/ - commented out to share training plots  
-# metrics/ - commented out to share training metrics
-# *.png - commented out to share plot images
-# *.npy - commented out to share metric files
+# Training outputs (keep these for sharing)
+# models/ - Keep trained models
+# plots/ - Keep training visualizations  
+# metrics/ - Keep training metrics
 
-# Jupyter
-.ipynb_checkpoints/
+# Temporary files
+*.tmp
+*.bak
+
+# Exclude any accidental re-creation of removed files
+*_old*
+*_backup*
+config.py
+main.py
+demo.py
+simple_*.py
+test_system.py
+training_*.py
+system_flow_demo.py
+pi4_*.py
+optimize_*.sh
+quick_*.sh
+setup_*.sh
+fix_*.sh
+*GUIDE*.md
+*SUMMARY*.md
+TROUBLESHOOTING.md
+requirements_*.txt
 
 # TensorFlow
 *.h5

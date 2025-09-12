@@ -6,8 +6,13 @@ Enhanced training script with comprehensive metrics tracking and visualization
 import os
 import sys
 import numpy as np
+
+# Set matplotlib to non-interactive backend for faster execution
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+
 import time
 import argparse
 from typing import List, Dict, Optional
@@ -38,11 +43,15 @@ class EnhancedMetricsTracker:
         self.efficiency_scores = []  # Reward per step
         self.learning_stability = []  # Loss variance tracking
         
-        # Moving averages
+        # Moving averages - optimized with deque
         self.reward_window = deque(maxlen=window_size)
         self.length_window = deque(maxlen=window_size)
         self.distance_window = deque(maxlen=window_size)
         self.success_window = deque(maxlen=window_size)
+        
+        # Pre-computed moving averages for plotting (updated incrementally)
+        self.reward_moving_avg = []
+        self.distance_moving_avg = []
         
         # Success tracking
         self.success_threshold = 0.05  # 5cm success threshold
@@ -72,6 +81,12 @@ class EnhancedMetricsTracker:
         self.reward_window.append(reward)
         self.length_window.append(length)
         self.distance_window.append(distance)
+        
+        # Update pre-computed moving averages for faster plotting
+        current_reward_avg = np.mean(self.reward_window)
+        current_distance_avg = np.mean(self.distance_window)
+        self.reward_moving_avg.append(current_reward_avg)
+        self.distance_moving_avg.append(current_distance_avg)
         
         # Success tracking
         is_success = distance < self.success_threshold
@@ -104,7 +119,7 @@ class EnhancedMetricsTracker:
             if reward > self.best_episode_reward:
                 self.best_episode_reward = reward
     
-    def get_current_stats(self) -> Dict:
+    def get_current_stats(self, compute_derived=True) -> Dict:
         """Get current statistics with enhanced metrics"""
         stats = {
             'avg_reward': np.mean(self.reward_window) if self.reward_window else 0,
@@ -120,15 +135,20 @@ class EnhancedMetricsTracker:
             'exploration_rate': self.exploration_rates[-1] if self.exploration_rates else 0
         }
         
-        # Add derived metrics
-        if self.improvement_rates:
-            stats['avg_improvement'] = np.mean(self.improvement_rates[-self.window_size:])
+        # Add derived metrics only when needed (for detailed reports)
+        if compute_derived:
+            if self.improvement_rates:
+                stats['avg_improvement'] = np.mean(self.improvement_rates[-self.window_size:])
+            else:
+                stats['avg_improvement'] = 0
+                
+            if self.efficiency_scores:
+                stats['efficiency'] = np.mean(self.efficiency_scores[-self.window_size:])
+            else:
+                stats['efficiency'] = 0
         else:
+            # Use cached values for fast access
             stats['avg_improvement'] = 0
-            
-        if self.efficiency_scores:
-            stats['efficiency'] = np.mean(self.efficiency_scores[-self.window_size:])
-        else:
             stats['efficiency'] = 0
             
         return stats
@@ -148,12 +168,8 @@ class EnhancedMetricsTracker:
         
         # 1. Rewards over time
         axes[0, 0].plot(episodes, self.episode_rewards, alpha=0.3, color='blue', label='Episode Reward')
-        if len(self.episode_rewards) >= self.window_size:
-            moving_avg = []
-            for i in range(len(self.episode_rewards)):
-                start_idx = max(0, i - self.window_size + 1)
-                moving_avg.append(np.mean(self.episode_rewards[start_idx:i+1]))
-            axes[0, 0].plot(episodes, moving_avg, color='red', linewidth=2, label=f'Moving Avg ({self.window_size})')
+        if len(self.reward_moving_avg) > 0:
+            axes[0, 0].plot(episodes, self.reward_moving_avg, color='red', linewidth=2, label=f'Moving Avg ({self.window_size})')
         axes[0, 0].set_title('Episode Rewards')
         axes[0, 0].set_xlabel('Episode')
         axes[0, 0].set_ylabel('Reward')
@@ -162,12 +178,8 @@ class EnhancedMetricsTracker:
         
         # 2. Distance to Target
         axes[0, 1].plot(episodes, self.distances_to_target, alpha=0.3, color='green', label='Distance')
-        if len(self.distances_to_target) >= self.window_size:
-            moving_avg_dist = []
-            for i in range(len(self.distances_to_target)):
-                start_idx = max(0, i - self.window_size + 1)
-                moving_avg_dist.append(np.mean(self.distances_to_target[start_idx:i+1]))
-            axes[0, 1].plot(episodes, moving_avg_dist, color='red', linewidth=2, label=f'Moving Avg ({self.window_size})')
+        if len(self.distance_moving_avg) > 0:
+            axes[0, 1].plot(episodes, self.distance_moving_avg, color='red', linewidth=2, label=f'Moving Avg ({self.window_size})')
         axes[0, 1].axhline(y=self.success_threshold, color='orange', linestyle='--', label='Success Threshold')
         axes[0, 1].set_title('Distance to Target')
         axes[0, 1].set_xlabel('Episode')
@@ -218,7 +230,8 @@ class EnhancedMetricsTracker:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
             print(f"Training progress plot saved to: {save_path}")
         
-        plt.show()
+        # Close the figure to free memory
+        plt.close(fig)
         
     def save_metrics(self, save_path: str):
         """Save metrics to file"""
@@ -296,11 +309,13 @@ class EnhancedRobotArmTrainer:
               episodes: int = 1000,
               max_steps_per_episode: int = 200,
               save_interval: int = 100,
-              plot_interval: int = 50,
-              render_interval: int = 10):
+              render_interval: int = 10,
+              fast_mode: bool = False):
         """Enhanced training with comprehensive metrics"""
         
         print(f"\n🚀 Starting enhanced training for {episodes} episodes...")
+        if fast_mode:
+            print("⚡ Fast mode enabled - reduced output for maximum speed")
         print(f"📈 Success threshold: {self.metrics.success_threshold:.3f}m")
         print("-" * 60)
         
@@ -351,19 +366,45 @@ class EnhancedRobotArmTrainer:
                 epsilon=getattr(self.agent, 'epsilon', None)
             )
             
-            # Print progress for every episode (minimized format only)
-            stats = self.metrics.get_current_stats()
-            elapsed_time = time.time() - start_time
-            
-            # Minimized single-line progress for every episode
-            print(f"Ep {episode:3d}/{episodes} | R:{episode_reward:6.1f} | d:{final_distance:.3f}m | "
-                  f"AvgR:{stats['avg_reward']:6.1f} | Avgd:{stats['avg_distance']:.3f}m | "
-                  f"SR:{stats['success_rate']*100:4.1f}% | Steps:{step_count:3d}")
-            
-            # Generate plots
-            if episode % plot_interval == 0 and episode > 0:
-                plot_path = f"plots/training_progress_ep{episode}.png"
-                self.metrics.plot_training_progress(save_path=plot_path)
+            # Print progress based on mode
+            if fast_mode:
+                # Fast mode: only print every 10 episodes
+                if episode % 10 == 0 or episode == episodes - 1:
+                    stats = self.metrics.get_current_stats(compute_derived=False)
+                    print(f"Ep {episode:3d}/{episodes} | R:{episode_reward:6.1f} | d:{final_distance:.3f}m | "
+                          f"AvgR:{stats['avg_reward']:6.1f} | Avgd:{stats['avg_distance']:.3f}m | "
+                          f"SR:{stats['success_rate']*100:4.1f}% | Steps:{step_count:3d}")
+            else:
+                # Normal mode: print every episode with details
+                stats = self.metrics.get_current_stats(compute_derived=False)
+                
+                # Minimized single-line progress for every episode
+                print(f"Ep {episode:3d}/{episodes} | R:{episode_reward:6.1f} | d:{final_distance:.3f}m | "
+                      f"AvgR:{stats['avg_reward']:6.1f} | Avgd:{stats['avg_distance']:.3f}m | "
+                      f"SR:{stats['success_rate']*100:4.1f}% | Steps:{step_count:3d}")
+                
+                # Detailed progress every render_interval episodes (skip episode 0) - use full stats
+                if episode % render_interval == 0 and episode > 0:
+                    stats = self.metrics.get_current_stats(compute_derived=True)  # Full computation for detailed report
+                    elapsed_time = time.time() - start_time  # Only calculate when needed
+                    print(f"\n{'='*60}")
+                    print(f"📊 DETAILED PROGRESS - Episode {episode:4d}/{episodes}")
+                    print(f"{'='*60}")
+                    print(f"  🏆 Avg Reward: {stats['avg_reward']:8.2f} (Best: {stats['best_episode_reward']:6.1f})")
+                    print(f"  📏 Avg Distance: {stats['avg_distance']:6.4f}m (Best: {stats['best_distance']:6.4f}m)")
+                    print(f"  ✅ Success Rate: {stats['success_rate']*100:5.1f}% (Total: {stats['total_successes']})")
+                    print(f"  🔥 Consecutive: {stats['consecutive_successes']:3d}")
+                    print(f"  📈 Improvement: {stats['avg_improvement']:+6.4f}m/ep")
+                    print(f"  ⚡ Efficiency: {stats['efficiency']:6.2f} reward/step")
+                    
+                    if self.agent_type == 'ddpg':
+                        print(f"  🎭 Actor Loss: {stats['actor_loss']:8.4f}")
+                        print(f"  🧠 Critic Loss: {stats['critic_loss']:8.4f}")
+                    else:
+                        print(f"  🔍 Exploration: {stats['exploration_rate']:6.3f}")
+                    
+                    print(f"  ⏱️ Time: {elapsed_time/60:.1f}min")
+                    print(f"{'='*60}\n")
             
             # Save model and metrics
             if episode % save_interval == 0 and episode > 0:
@@ -530,8 +571,8 @@ def main():
                        help='Run without physical robot (simulation only)')
     parser.add_argument('--render-interval', type=int, default=10,
                        help='Print progress every N episodes')
-    parser.add_argument('--plot-interval', type=int, default=25,
-                       help='Generate plots every N episodes')
+    parser.add_argument('--fast', action='store_true',
+                       help='Enable fast mode - reduced output for maximum speed')
     
     args = parser.parse_args()
     
@@ -545,7 +586,7 @@ def main():
         trainer.train(
             episodes=args.episodes,
             render_interval=args.render_interval,
-            plot_interval=args.plot_interval
+            fast_mode=args.fast
         )
     else:
         print("Test and demo modes coming soon!")
