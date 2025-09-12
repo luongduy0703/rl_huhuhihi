@@ -36,12 +36,14 @@ ENV/
 Thumbs.db
 
 # Project specific
-models/
-plots/
-metrics/
 *.log
-*.png
-*.npy
+
+# Allow sharing important project files
+# models/ - commented out to share trained models
+# plots/ - commented out to share training plots  
+# metrics/ - commented out to share training metrics
+# *.png - commented out to share plot images
+# *.npy - commented out to share metric files
 
 # Jupyter
 .ipynb_checkpoints/
