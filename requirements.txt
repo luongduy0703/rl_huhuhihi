@@ -1,0 +1,25 @@
+# Compatible versions for Raspberry Pi 4 and Ubuntu systems
+tensorflow==2.10.1          # Stable version compatible with NumPy 1.21.6
+numpy==1.21.6               # Compatible with SciPy 1.7.3 and TensorFlow 2.10.1
+scipy==1.7.3                # Compatible with NumPy 1.21.6
+
+# Hardware control libraries (Raspberry Pi only)
+adafruit-circuitpython-pca9685==3.4.15
+adafruit-circuitpython-motor==3.4.12
+board                       # CircuitPython board definitions
+busio                       # I2C/SPI communication
+RPi.GPIO                    # GPIO control for Raspberry Pi
+
+# Visualization and analysis
+matplotlib>=3.1.2           # Plotting and visualization
+opencv-python>=4.5.0        # Computer vision (optional)
+
+# Reinforcement Learning
+gym==0.26.2                 # RL environment framework
+stable-baselines3>=1.8.0    # Advanced RL algorithms (optional)
+
+# Optional enhancements
+torch>=1.9.0                # PyTorch for alternative implementations
+jupyter                     # Jupyter notebooks for analysis
+pandas                      # Data analysis and metrics
+seaborn                     # Enhanced plotting
