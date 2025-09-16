@@ -7,7 +7,6 @@ scipy==1.7.3                # Compatible with NumPy 1.21.6
 adafruit-circuitpython-pca9685==3.4.15
 adafruit-circuitpython-motor==3.4.12
 board                       # CircuitPython board definitions
-busio                       # I2C/SPI communication
 RPi.GPIO                    # GPIO control for Raspberry Pi
 
 # Visualization and analysis
