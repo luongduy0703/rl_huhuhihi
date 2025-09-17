@@ -27,3 +27,15 @@ class BaseAgent:
             with open(filepath, 'rb') as f:
                 return pickle.load(f)
         return None
+
+    def save_replay_buffer(self, filepath: str):
+        """Lưu replay buffer ra file."""
+        with open(filepath, 'wb') as f:
+            pickle.dump(list(self.memory), f)
+
+    def load_replay_buffer(self, filepath: str):
+        """Tải lại replay buffer từ file."""
+        if os.path.exists(filepath):
+            with open(filepath, 'rb') as f:
+                buffer = pickle.load(f)
+                self.memory = deque(buffer, maxlen=self.memory.maxlen)

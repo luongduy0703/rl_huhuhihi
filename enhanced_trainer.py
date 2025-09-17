@@ -294,6 +294,11 @@ class EnhancedRobotArmTrainer:
         
         if agent_type == 'ddpg':
             self.agent = DDPGAgent(state_size, action_size)
+            # Tự động tải lại replay buffer nếu file tồn tại
+            replay_buffer_path = os.path.join(os.path.dirname(self.model_save_path), 'replay_buffer.pkl')
+            if os.path.exists(replay_buffer_path):
+                self.agent.load_replay_buffer(replay_buffer_path)
+                print(f"🧠 Replay buffer loaded from {replay_buffer_path}")
         else:
             action_space_size = 5 ** num_joints  # 5 discrete actions per joint
             self.agent = DQNAgent(state_size, action_space_size)
@@ -538,6 +543,12 @@ class EnhancedRobotArmTrainer:
         print(f"   📈 Metrics: {final_metrics_path}")
         print(f"   🤖 Model: {self.model_save_path}")
         print("=" * 60)
+
+        # Tự động lưu replay buffer của agent
+        if hasattr(self.agent, 'save_replay_buffer'):
+            replay_buffer_path = os.path.join(os.path.dirname(self.model_save_path), 'replay_buffer.pkl')
+            self.agent.save_replay_buffer(replay_buffer_path)
+            print(f"   🧠 Replay buffer: {replay_buffer_path}")
         
     def _discretize_action(self, action_index: int) -> np.ndarray:
         """Convert discrete action index to continuous action"""
