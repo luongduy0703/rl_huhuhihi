@@ -54,7 +54,7 @@ class EnhancedMetricsTracker:
         self.distance_moving_avg = []
         
         # Success tracking
-        self.success_threshold = 0.05  # 5cm success threshold
+        self.success_threshold = 0.10  # 10cm success threshold
         self.consecutive_successes = 0
         self.best_distance = float('inf')
         self.total_successes = 0
@@ -543,6 +543,10 @@ class EnhancedRobotArmTrainer:
         print(f"   📈 Metrics: {final_metrics_path}")
         print(f"   🤖 Model: {self.model_save_path}")
         print("=" * 60)
+
+        # Kiểm tra độ dài replay buffer
+        if hasattr(self.agent, 'memory'):
+            print(f"Replay buffer length: {len(self.agent.memory)}")
 
         # Tự động lưu replay buffer của agent
         if hasattr(self.agent, 'save_replay_buffer'):

@@ -203,27 +203,29 @@ class RobotArmEnvironment(gym.Env if GYM_AVAILABLE else object):
         
         # 1. DISTANCE IMPROVEMENT REWARD (main component)
         distance_improvement = self.previous_distance - current_distance
-        distance_reward = distance_improvement * 10.0  # Amplify improvement signal
+        distance_reward = distance_improvement * 15.0  # Amplify improvement signal
         
         # 2. PROXIMITY BONUS (exponential bonus for being close)
         # This provides strong gradient near target
         max_distance = 0.8  # Maximum expected distance in workspace
         proximity_factor = max(0, (max_distance - current_distance) / max_distance)
-        proximity_bonus = proximity_factor ** 2 * 2.0  # Quadratic bonus
+        proximity_bonus = proximity_factor ** 2 * 5.0  # Quadratic bonus
         
         # 3. MILESTONE REWARDS (progressive rewards)
         milestone_bonus = 0
+        success_bonus = 0.0
         if current_distance < 0.30:    # Within 30cm
-            milestone_bonus += 1.0
-        if current_distance < 0.20:    # Within 20cm
             milestone_bonus += 2.0
+        if current_distance < 0.20:    # Within 20cm
+            milestone_bonus += 4.0
         if current_distance < 0.10:    # Within 10cm  
-            milestone_bonus += 3.0
+            milestone_bonus += 8.0
         if current_distance < 0.05:    # Within 5cm - SUCCESS!
-            milestone_bonus += 15.0
+            milestone_bonus += 25.0
+            success_bonus += 50.0
         
         # 4. MOVEMENT EFFICIENCY (reduced penalty)
-        movement_penalty = -0.01 * np.sum(np.abs(self.previous_action))  # Much smaller penalty
+        movement_penalty = -0.005 * np.sum(np.abs(self.previous_action))  # Much smaller penalty
         
         # 5. SMOOTHNESS REWARD (encourage smooth movements)
         if hasattr(self, 'last_action') and self.last_action is not None:
@@ -237,14 +239,14 @@ class RobotArmEnvironment(gym.Env if GYM_AVAILABLE else object):
         for i, angle in enumerate(self.current_joint_angles):
             min_angle, max_angle = self.joint_limits[i]
             if angle <= min_angle + 2 or angle >= max_angle - 2:
-                limit_penalty -= 0.5  # Reduced penalty
+                limit_penalty -= -0.2  # Reduced penalty
         
         # 7. TIME STEP PENALTY (small penalty to encourage efficiency)
-        time_penalty = -0.01
+        time_penalty = -0.005
         
         # TOTAL REWARD CALCULATION
-        total_reward = (distance_reward + proximity_bonus + milestone_bonus + 
-                       movement_penalty + smoothness_reward + limit_penalty + time_penalty)
+        total_reward = (distance_reward + proximity_bonus + milestone_bonus + success_bonus +
+                   movement_penalty + smoothness_reward + limit_penalty + time_penalty)
         
         # Store for next calculation
         self.last_action = self.previous_action.copy() if self.previous_action is not None else None

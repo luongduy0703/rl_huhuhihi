@@ -10,8 +10,8 @@ class DDPGAgent(BaseAgent):
     """
     Deep Deterministic Policy Gradient agent for continuous control (OOP module)
     """
-    def __init__(self, state_size, action_size, actor_lr=0.00005, critic_lr=0.001, gamma=0.99,
-                 tau=0.001, batch_size=64, memory_size=100000, noise_std=0.1):
+    def __init__(self, state_size, action_size, actor_lr=0.00005, critic_lr=0.0005, gamma=0.99,
+                 tau=0.001, batch_size=128, memory_size=10000, noise_std=0.1):
         super().__init__(state_size, action_size, memory_size)
         self.gamma = gamma
         self.tau = tau
@@ -73,6 +73,7 @@ class DDPGAgent(BaseAgent):
         rewards = np.array([exp[2] for exp in batch]).reshape(-1, 1)
         next_states = np.array([exp[3] for exp in batch])
         dones = np.array([exp[4] for exp in batch]).reshape(-1, 1)
+        # Critic update
         with tf.GradientTape() as tape:
             target_actions = self.target_actor(next_states)
             target_q = self.target_critic([next_states, target_actions])
@@ -80,12 +81,17 @@ class DDPGAgent(BaseAgent):
             q_value = self.critic([states, actions])
             critic_loss = tf.reduce_mean(tf.square(y - q_value))
         critic_grads = tape.gradient(critic_loss, self.critic.trainable_variables)
+        critic_grads = [tf.clip_by_norm(g, 1.0) if g is not None else None for g in critic_grads]
         self.critic_optimizer.apply_gradients(zip(critic_grads, self.critic.trainable_variables))
+
+        # Actor update
         with tf.GradientTape() as tape:
             actions_pred = self.actor(states)
             actor_loss = -tf.reduce_mean(self.critic([states, actions_pred]))
         actor_grads = tape.gradient(actor_loss, self.actor.trainable_variables)
+        actor_grads = [tf.clip_by_norm(g, 1.0) if g is not None else None for g in actor_grads]
         self.actor_optimizer.apply_gradients(zip(actor_grads, self.actor.trainable_variables))
+
         self.update_target_networks()
         self.actor_loss_history.append(float(actor_loss))
         self.critic_loss_history.append(float(critic_loss))
